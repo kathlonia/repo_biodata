@@ -6,7 +6,7 @@
 # to compare our environmental variables, we will first do a heatmap, to see the correlation 
 # ============================================================================================
 
-install.packages(c("fmsb", "cowplot", "gridGraphics", "reshape", "patchwork"))
+#install.packages(c("fmsb", "cowplot", "gridGraphics", "reshape"))
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -19,10 +19,9 @@ library(fmsb)
 library(cowplot)
 library(gridGraphics)
 library(reshape)
-library(ggplot2)
 
 # 1A) calculate the correlation matrix
-View(matrix_full)
+
 matrix_full_heatmap <- matrix_full %>%
     dplyr::select(elevation, tmax_mean_c, prec_annual_mm, prop_forest_2024)
 #View(matrix_full_heatmap)
@@ -144,7 +143,7 @@ print(graphC)
 ggsave(graphC, filename = "data/results_plots/graph_C.png", width = 10, height = 6, dpi = 300)
 
 # =====================================================================================================
-# our third and last plot will be a radar plot, to synthetize the niche profil for the two species 
+# our third plot will be a radar plot, to synthetize the niche profil for the two species 
 # ======================================================================================================
 # 1C) prepare the matrix for the radar plot
 matrix_full_radar <- matrix_full %>%
@@ -154,8 +153,6 @@ radar_data <- matrix_full_radar %>%
   group_by(species) %>%
   summarise(across(everything(), mean, na.rm = TRUE)) %>%
   tibble::column_to_rownames("species")
-
-print(radar_data)
 
 colnames(radar_data) <- c("Elevation (m)", 
                            "Max temp (°C)", 
@@ -183,7 +180,7 @@ cols <- c(rgb(0.8, 0, 0, 1),
 par(mar = c(6, 2, 4, 2))
 
 # 3C) Plot the radar chart
-windows()
+
 radarchart(radar_ready,
            cglty = 1,
            cglcol = "gray80",
@@ -269,7 +266,7 @@ landscape_long <- matrix_full %>%
 
 
 # 2D) plot the observations into two different barplot
-
+library(patchwork)
 p_landform <- ggplot(
   subset(landscape_long, variable == "Landforms"),
   aes(x = species, fill = category)

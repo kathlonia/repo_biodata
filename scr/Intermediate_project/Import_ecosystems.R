@@ -237,8 +237,3 @@ ggsave(p5, filename = ".\\data\\ecosystems_maps\\p5.png", width = 10, height = 8
 
 # Barbastella is exempte from the warm temperate dry region... 
 # we could test in the future if the regions that become warmer and dryer in France hunt this species from there
-
-# Since the WorldEcosystem.tif document is too large to push to the Git repository each time,
-# it's necessary to lock it to push all the other files without pushing it, so as not to block changes
-git-lock (".\\data\\git_lock.txt")
-# doesn't work yet, the professor has to send me the file....

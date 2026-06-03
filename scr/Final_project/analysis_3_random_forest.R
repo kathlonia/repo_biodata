@@ -17,7 +17,7 @@
 # 0) Packages
 ############################################################
 # Used to train the Random Forest model.
-install.packages("randomForest", "caret")
+#install.packages("randomForest", "caret")
 library("randomForest") 
 library("caret")
 library("dplyr")
@@ -54,7 +54,7 @@ str(grid_pred)
 
 # This first plot simply shows where the occurrence points are located.
 
-windows()
+
 ggplot(matrix_full, aes(x = longitude, y = latitude, color = species)) +
   geom_point(size = 2, alpha = 0.7) +
   coord_equal() +
@@ -232,8 +232,7 @@ importance_matrix$feature <- rownames(importance_matrix)
 importance_matrix <- importance_matrix %>%
   arrange(desc(MeanDecreaseGini))
 
-windows()
-ggplot(
+p1 <- ggplot(
   importance_matrix,
   aes(
     x = reorder(feature, MeanDecreaseGini),
@@ -248,8 +247,10 @@ ggplot(
     x = "Feature",
     y = "Mean decrease in Gini"
   )
-# the variables that the model uses the most to discriminate the species are : maximum annual mean temperature, 
-# mean annual precipitation, elevation and type of world ecosystem 
+print(p1)
+ggsave(p1, filename = "data/results_plots/confusion_matrix.png", width = 10, height = 6, dpi = 300)
+# the variables that the model uses the most to discriminate the species are : latitude, maximum annual mean temperature, 
+# mean annual precipitation, world ecosystem, longitude and elevation 
 
 ############################################################
 # 10) Prepare the prediction grid
@@ -377,7 +378,7 @@ species_names
 
 target_species <- "Rhinolophus ferrumequinum" 
 
-windows()
+
 ggplot(grid_map, aes(x = longitude, y = latitude)) +
   geom_tile(aes(fill = .data[[target_species]])) + #  geom_tile creates a colored tile for each grid point, colored according to the predicted probability of the target species.
   geom_point(
@@ -418,10 +419,9 @@ bbox <- st_as_sfc(st_bbox(c(
 # remove france from the bbox => polygone "everything without france"
 masque_exterieur <- st_difference(bbox, st_union(france))
 
-windows()
-library(patchwork)
 
 # ── create one map per species, and then assemble both with patchwork ─────────────────────────────
+library(patchwork)
 make_map <- function(species_col, species_name, point_color) {
   
   ggplot(grid_map, aes(x = longitude, y = latitude)) +

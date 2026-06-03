@@ -342,6 +342,7 @@ p_landcover <- ggplot(
     face = "bold"
   )
 )
+library(patchwork)
 
 graphD <- p_landform + p_landcover +
   plot_annotation(
@@ -386,11 +387,8 @@ print(figure_finale)
 #  EXPORT
 # ============================================================
 
-ggsave("Figures_bats_species_France.png", figure_finale,
+ggsave("data/Figures_bats_species_France.png", figure_finale,
        width = 24, height = 20, dpi = 400, bg = "white")
 
-ggsave("Figures_bats_species_France.pdf", figure_finale,
+ggsave("data/Figures_bats_species_France.pdf", figure_finale,
        width = 18, height = 20, dpi = 300, bg = "white")
-
-ggsave("Figures_bats_species_France.png", figure_finale,
-       width = 13, height = 16, device = cairo_pdf)

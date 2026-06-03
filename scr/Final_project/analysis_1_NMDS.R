@@ -16,8 +16,8 @@ NMDS_numeric <- matrix_full %>%
   filter(year(date_obs) == 2024) %>%
   dplyr::select(species, tmax_mean_c, elevation, prec_annual_mm, prop_forest_2024) %>%
   na.omit()
-View(NMDS_numeric)
-head(NMDS_numeric)
+#View(NMDS_numeric)
+#head(NMDS_numeric)
 
 # 2) separate the matrix: one with the numeric values and one with the species values (factor)
 NMDS_num <- NMDS_numeric %>%
@@ -78,6 +78,7 @@ arrows_labels <- arrows_df_scaled %>%
   )
 
 dir.create("data/results_plots", recursive = TRUE)
+
 p1 <- ggplot(nmds_scores, aes(x = NMDS1, y = NMDS2, color = species)) +
   geom_point(alpha = 0.7, size = 3) +
   stat_ellipse(aes(fill = species), geom = "polygon",   # ellipses de confiance
