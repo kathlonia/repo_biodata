@@ -7,6 +7,8 @@
 # - join the raster values with metadata
 # - visualize the result
 ###############################################################################
+# now we want to add ecosystem data to our species occurence points; indeed, we want to get infos
+# about the landcover, the climate ans possibly the elevation of the points where the species were observed.
 
 #------------------------------------------------------------------------------
 # 1) LOAD REQUIRED PACKAGES
@@ -37,8 +39,7 @@ ecosystem_raster <- raster(file_path)
 print(ecosystem_raster)
 
 # Optional: plot the full raster
-plot(ecosystem_raster, main = "Original Ecosystem Raster")
-
+# plot(ecosystem_raster, main = "Original Ecosystem Raster"), here, we don't need it, we just need the informations for the France boundaries 
 #------------------------------------------------------------------------------
 # 3) LOAD THE BOUNDARY OF FRANCE
 #------------------------------------------------------------------------------
@@ -57,21 +58,26 @@ plot(st_geometry(France), main = "Boundary of France")
 # 4) CROP AND MASK THE RASTER TO FRANCE
 #------------------------------------------------------------------------------
 
-# crop() keeps only the rectangular extent around France
+# crop() keeps only the rectangular extent around France (metropolitan area, to avoid other france regions like Guadeloupe, Martinique... or so to come)
 France_metro <- st_crop(France, xmin = -5, xmax = 10, ymin = 41, ymax = 52)
 r2 <- crop(ecosystem_raster, extent(France_metro))
 
 # mask() keeps only the pixels that fall inside the country boundary
 ecosystem_france <- mask(r2, France_metro)
 
-# Plot the cropped and masked raster
+# create the folder for stocking the maps 
+dir.create("data/ecosystems_maps", showWarnings = FALSE)
+
+# Plot the cropped and masked raster and save it into the folder
+png(".\\data\\ecosystems_maps\\p1.png", width = 10, height = 8, units = "in", res = 150)
 plot(ecosystem_france, main = "Ecosystem Raster Restricted to France")
+dev.off()
 
 #------------------------------------------------------------------------------
-# 5) CONVERT SPECIES COORDINATES INTO SPATIAL POINTS
+# 5) CONVERT SPECIES COORDINATES INTO SPATIAL POINTS to fit with the sf object
 #------------------------------------------------------------------------------
 
-# We assume that matrix_full is a data frame containing at least:
+# matrix_full (=all_species in my case) is a data frame containing :
 # - longitude
 # - latitude
 # - species
@@ -88,9 +94,11 @@ spatial_points <- SpatialPoints(
 )
 
 # Add the occurrence points on top of the ecosystem map
-windows()
+# Sauvegarder p2 (la carte ecosystem)
+png(".\\data\\ecosystems_maps\\p2.png", width = 10, height = 8, units = "in", res = 150)
 plot(ecosystem_france, main = "Species Occurrences on Ecosystem Map")
 plot(spatial_points, add = TRUE, pch = 16, cex = 1.2)
+dev.off()
 
 #------------------------------------------------------------------------------
 # 6) EXTRACT ECOSYSTEM VALUES AT EACH OCCURRENCE POINT
@@ -131,9 +139,12 @@ head(metadata_eco)
 #------------------------------------------------------------------------------
 
 # Merge the occurrence table with the metadata table
+# each value (number) refers to a set of environmental metadata: temperature, moisture, landcover, landforms, climatic region, values of red band, green band and blue band, ecosystem and color in the raster
+# we will link the metadata corresponding to each value to the all_species_eco table, and then we will keep only the columns that interest us for the follwing steps of the project
 # by.x = "eco_values" means the ecosystem code in our occurrence table
 # by.y = "Value" means the corresponding code column in the metadata table
-all_species_eco <- merge(
+
+all_species_eco_data <- merge(
   all_species_eco,
   metadata_eco,
   by.x = "eco_values",
@@ -141,26 +152,93 @@ all_species_eco <- merge(
 )
 
 # Inspect the enriched table
-head(all_species_eco)
+head(all_species_eco_data)
 
 #------------------------------------------------------------------------------
-# 10) VISUALIZE THE NUMBER OF OBSERVATIONS PER CLIMATE CATEGORY AND SPECIES
+# 10) VISUALIZE THE NUMBER OF OBSERVATIONS PER LANDCOVER CATEGORY AND SPECIES
 #------------------------------------------------------------------------------
 
 # Create a bar plot showing how many observations of each species
-# are found in each climate category
-windows()
-p2 <- ggplot(all_species_eco, aes(x = Landcover, fill = species)) +
-  geom_bar(position = "dodge") +
+# are found in each landcover category, by proportion!
+all_species_eco_data_prop_1 <- all_species_eco_data %>%
+  group_by(species, Landcover) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(species) %>%
+  mutate(prop = n / sum(n))
+
+p3 <- ggplot(all_species_eco_data_prop_1, aes(x = Landcover, y = prop, fill = species)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_manual(values = c(
+    "Rhinolophus ferrumequinum" = "#003366",
+    "Barbastella barbastellus" = "#1B5E20"
+  )) +
   labs(
-    title = "Count of Observations of Each Species by Climate",
-    x = "Climate category",
-    y = "Number of observations"
+    title = "Proportion of observations of each species by landcover",
+    x = "Landcover category",
+    y = "Proportion of observations"
   ) +
   theme_minimal()
+print(p3)
+ggsave(p3, filename = ".\\data\\ecosystems_maps\\p3.png", width = 10, height = 8)
+# we can see that Rhinolophus is more present in cropland and in forest, but less in grassland, regarding Barbastella, 
+# which is logical because Rhinolophus is less regarding about the forests than Barbastella 
+#------------------------------------------------------------------------------
+# 11) VISUALIZE THE NUMBER OF OBSERVATIONS PER TEMPERATURE AND SPECIES
+#------------------------------------------------------------------------------
 
-# Display the plot
-print(p2)
+# Bar plot showing how many observations of each species
+# are found for each temperature, by proportion
+all_species_eco_data_prop_2 <- all_species_eco_data %>%
+  group_by(species, Temperatur) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(species) %>%
+  mutate(prop = n / sum(n))
 
-View(all_species_eco)
+p4 <- ggplot(all_species_eco_data_prop_2, aes(x = Temperatur, y = prop, fill = species)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_manual(values = c(
+    "Rhinolophus ferrumequinum" = "#003366",
+    "Barbastella barbastellus" = "#1B5E20"
+  )) +
+  labs(
+    title = "Proportion of observations of each species by temperature",
+    x = "Temperatur",
+    y = "Proportion of observations"
+  ) +
+  theme_minimal()
+print(p4)
+ggsave(p4, filename = ".\\data\\ecosystems_maps\\p4.png", width = 10, height = 8)
 
+# Hum this graph doesn't tell us much, except that we find usually more barbastella in cool temperate places and more rhinolophus in warm temperate places
+# let's try a third graph, with the climatic_regions
+
+# Bar plot showing how many observations of each species
+# are found for each climatic region, by proportion
+all_species_eco_data_prop_3 <- all_species_eco_data %>%
+  group_by(species, Climate_Re) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(species) %>%
+  mutate(prop = n / sum(n))
+
+p5 <- ggplot(all_species_eco_data_prop_3, aes(x = Climate_Re, y = prop, fill = species)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_manual(values = c(
+    "Rhinolophus ferrumequinum" = "#003366",
+    "Barbastella barbastellus" = "#1B5E20"
+  )) +
+  labs(
+    title = "Proportion of observations of each species by climatic region",
+    x = "Climatic region",
+    y = "Proportion of observations"
+  ) +
+  theme_minimal()
+print(p5)
+ggsave(p5, filename = ".\\data\\ecosystems_maps\\p5.png", width = 10, height = 8)
+
+# Barbastella is exempte from the warm temperate dry region... 
+# we could test in the future if the regions that become warmer and dryer in France hunt this species from there
+
+# Since the WorldEcosystem.tif document is too large to push to the Git repository each time,
+# it's necessary to lock it to push all the other files without pushing it, so as not to block changes
+git-lock (".\\data\\git_lock.txt")
+# doesn't work yet, the professor has to send me the file....

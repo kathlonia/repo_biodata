@@ -7,17 +7,18 @@ library(ggplot2)       # graphics
 library(rinat)         # access to iNaturalist data
 library(raster)        # spatial extent management
 library(sf)            # modern spatial objects
+library(dplyr)
 
-sf_use_s2(FALSE)
+sf_use_s2(FALSE) # spherical geometry switched off, to avoid issues later
 
-# Species of interest (first try with one species)
+# Species of interest number one: Rhinolophus ferrumequinum
 myspecies_1 <- "Rhinolophus ferrumequinum"
 
 # Maximum number of GBIF records to download
 gbif_limit <- 4000
 
 # Time filtering period
-date_start <- as.Date("2021-01-01")
+date_start <- as.Date("2020-01-01")
 date_end   <- as.Date("2025-12-31")
 
 # Simplified geographic extent for France
@@ -37,12 +38,16 @@ France <- ne_countries(
   country = "France"
 )
 
+# create the folder for stocking the maps 
+dir.create("data/merge_gbif_inat_maps", showWarnings = FALSE)
+
 # Simple visualization of the map
-windows()
-ggplot(data = France) +
+p1 <-ggplot(data = France) +
   geom_sf(fill = "grey95", color = "black") +
   coord_sf(xlim = c(-5, 10), ylim = c(42, 51)) +
   theme_classic()
+print(p1)
+ggsave(p1, filename = ".\\data\\merge_gbif_inat_maps\\p1.png", width = 10, height = 8)
 
 ###############################################################################
 # 4) DOWNLOAD GBIF DATA
@@ -59,21 +64,20 @@ gbif_raw <- occ_data(
 gbif_occ <- gbif_raw$data
 
 # Quick inspection
-#head(gbif_occ)
-#names(gbif_occ)
+# head(gbif_occ) 
+# names(gbif_occ)
 
-# Vérifier la structure du dataframe
+# check the structure of the data frame 
 #str(gbif_occ) #dnaSequenceID is a list, we have to remove it 
-library(dplyr)
+
 gbif_France <- gbif_occ %>%
-  select(-dnaSequenceID) %>%
+  dplyr::select(-dnaSequenceID) %>%
   filter(country == "France")
 
 # Check number of records
-#nrow(gbif_France)
+# nrow(gbif_France) # 1633 occurences in France for GBIF
 
 # Quick base plot for checking
-windows()
 plot(
   gbif_France$decimalLongitude,
   gbif_France$decimalLatitude,
@@ -85,8 +89,7 @@ plot(
 )
 
 # Map showing GBIF occurrences only
-windows()
-ggplot(data = France) +
+p2 <- ggplot(data = France) +
   geom_sf(fill = "grey95", color = "black") +
   geom_point(
     data = gbif_France,
@@ -98,6 +101,8 @@ ggplot(data = France) +
   ) +
   coord_sf(xlim = c(-5, 10), ylim = c(42, 51)) +
   theme_classic()
+print(p2)
+ggsave(p2, filename = ".\\data\\merge_gbif_inat_maps\\p2.png", width = 10, height = 8)
 
 ###############################################################################
 # 5) FORMAT GBIF DATA
@@ -114,15 +119,14 @@ data_gbif <- data.frame(
 )
 
 # Check structure
-#head(data_gbif)
-#str(data_gbif)
+# head(data_gbif)
+# str(data_gbif)
 
 ###############################################################################
 # 6) DOWNLOAD iNaturalist DATA
 ###############################################################################
 
 # Query iNaturalist for the same species in Europe
-# place_id = "europe" usually works with rinat
 inat_raw <- get_inat_obs(
   query = myspecies_1,
   place_id = "france"
@@ -130,12 +134,11 @@ inat_raw <- get_inat_obs(
 
 
 # Inspect the structure
-#head(inat_raw)
-#names(inat_raw)
+# head(inat_raw)
+# names(inat_raw)
 
 # Map showing iNaturalist occurrences only
-windows()
-ggplot(data = France) +
+p3 <- ggplot(data = France) +
   geom_sf(fill = "grey95", color = "black") +
   geom_point(
     data = inat_raw,
@@ -147,6 +150,8 @@ ggplot(data = France) +
   ) +
   coord_sf(xlim = c(-5, 10), ylim = c(42, 51)) +
   theme_classic()
+print(p3)
+ggsave(p3, filename = ".\\data\\merge_gbif_inat_maps\\p3.png", width = 10, height = 8)
 
 ###############################################################################
 # 7) FORMAT iNaturalist DATA
@@ -173,7 +178,7 @@ data_inat <- data.frame(
 # IMPORTANT:
 # Here we want to STACK GBIF and iNaturalist observations.
 # Therefore we use bind_rows() instead of merge().
-matrix_full_1 <- bind_rows(data_gbif, data_inat)
+matrix_full_1 <- dplyr::bind_rows(data_gbif, data_inat)
 
 # Check results
 #head(matrix_full_1)
@@ -185,9 +190,8 @@ matrix_full_1 <- bind_rows(data_gbif, data_inat)
 ###############################################################################
 
 # Keep only observations within the selected time interval
-matrix_full_date_1 <- matrix_full_1 %>%
-  filter(!is.na(date_obs)) %>%
-  filter(date_obs >= date_start & date_obs <= date_end)
+matrix_full_date_1 <- dplyr::filter(matrix_full_1, !is.na(date_obs)) %>%
+  dplyr::filter(date_obs >= date_start & date_obs <= date_end)
 
 # Check results
 #head(matrix_full_date_1)
@@ -198,8 +202,7 @@ matrix_full_date_1 <- matrix_full_1 %>%
 # 10) MAP OF COMBINED DATA
 ###############################################################################
 
-windows()
-ggplot(data = France) +
+p4 <- ggplot(data = France) +
   geom_sf(fill = "grey95", color = "black") +
   geom_point(
     data = matrix_full_date_1,
@@ -211,6 +214,8 @@ ggplot(data = France) +
   ) +
   coord_sf(xlim = c(-5, 10), ylim = c(42, 51)) +
   theme_classic()
+print(p4)
+ggsave(p4, filename = ".\\data\\merge_gbif_inat_maps\\p4.png", width = 10, height = 8)
 
 ###############################################################################
 # 11) DEFINE A SIMPLE SPATIAL EXTENT
@@ -221,7 +226,7 @@ ggplot(data = France) +
 
 library(sf)
 library(raster)
-sf_use_s2(FALSE)
+sf_use_s2(FALSE) # again, switch off the spherical geometry
 
 # Define the spatial extent
 extent(France)
@@ -232,8 +237,7 @@ bbox_cut <- st_bbox(c(xmin = 6, xmax = 11, ymin = 47, ymax = 48), crs = 4326)
 France_crop <- st_crop(France, bbox_cut)
 
 # Plot cropped map with occurrence points
-windows()
-ggplot(data = France) +
+p5 <- ggplot(data = France) +
   geom_sf() +
   geom_point(
     data = matrix_full_date_1,
@@ -243,6 +247,8 @@ ggplot(data = France) +
   ) + 
   coord_sf(xlim = c(-5, 10), ylim = c(42, 51)) +
   theme_classic()
+print(p5)
+ggsave(p5, filename = ".\\data\\merge_gbif_inat_maps\\p5.png", width = 10, height = 8)
 
 ################################################################################
 ################################################################################
@@ -257,17 +263,16 @@ France_sf <- st_as_sf(France)
 # Identify points in france
 intersects_result <- st_intersects(data_gbif_sf, France_sf)
 
-# Garder uniquement les points qui intersectent au moins un polygone
+# Keep only the points that intersect at least one polygone
 keep <- lengths(intersects_result) > 0
 cur_data_1 <- matrix_full_1[keep, ]
 
-# Vérification
-#nrow(cur_data_1)
+# Verification
+#nrow(cur_data_1) # 1685 
 #table(cur_data_1$source)
 
 # Plot cropped France map with filtered points
-windows()
-ggplot(data = France_sf) +
+p6 <- ggplot(data = France_sf) +
   geom_sf() +
   geom_point(
     data = cur_data_1,
@@ -277,15 +282,17 @@ ggplot(data = France_sf) +
   ) +
   coord_sf(xlim = c(-5, 10), ylim = c(42, 51)) +
   theme_classic()
+print(p6)
+ggsave(p6, filename = ".\\data\\merge_gbif_inat_maps\\p6.png", width = 10, height = 8)
 
 ###############################################################################
-# 14) OPTIONAL SAVE OF THE FINAL TABLE
+# 14) SAVE OF THE FINAL TABLE
 ###############################################################################
 
 # Save filtered occurrence table
 write.csv(
   cur_data_1,
-  file = "Rhinolophus_ferrumequinum.csv",
+  file = ".\\data\\merge_gbif_inat_maps\\Rhinolophus_ferrumequinum.csv",
   row.names = FALSE
 )
 
@@ -293,26 +300,17 @@ write.csv(
 # ------------- script for the second species: Plecotus auritus ------------------
 # --------------------------------------------------------------------------------
 
-#### Script to merge GBIF and iNaturalist occurences for two species of Chyroptera ######
-
-library(rgbif)         # get the informations from GBIF
-library(rnaturalearth) # country maps
-library(ggplot2)       # graphics
-library(rinat)         # access to iNaturalist data
-library(raster)        # spatial extent management
-library(sf)            # modern spatial objects
-
 # Disable spherical geometry for simpler spatial operations
 sf_use_s2(FALSE)
 
-# Species of interest (first try with one species)
+# Species of interest (now the second one, Barbastella barbastellus)
 myspecies_2 <- "Barbastella barbastellus"
 
 # Maximum number of GBIF records to download
 gbif_limit <- 4000
 
 # Time filtering period
-date_start <- as.Date("2021-01-01")
+date_start <- as.Date("2020-01-01")
 date_end   <- as.Date("2025-12-31")
 
 # Simplified geographic extent for Europe
@@ -332,12 +330,11 @@ France <- ne_countries(
   country = "France"
 )
 
-# Simple visualization of the map
-windows()
-ggplot(data = France) +
-  geom_sf(fill = "grey95", color = "black") +
-  coord_sf(xlim = c(-5, 10), ylim = c(42, 51)) +
-  theme_classic()
+# Simple visualization of the map # no need since we've already done it beffor, for the first species 
+# ggplot(data = France) +
+  # geom_sf(fill = "grey95", color = "black") +
+  # coord_sf(xlim = c(-5, 10), ylim = c(42, 51)) +
+  # theme_classic()
 
 ###############################################################################
 # 4) DOWNLOAD GBIF DATA
@@ -357,18 +354,16 @@ gbif_occ <- gbif_raw$data
 #head(gbif_occ)
 #names(gbif_occ)
 
-# Vérifier la structure du dataframe
-#str(gbif_occ) #dnaSequenceID is a list, we have to remove it 
-library(dplyr)
+# check the structure of the data frame
+#str(gbif_occ)
 gbif_France <- gbif_occ %>%
   select(-dnaSequenceID) %>%
   filter(country == "France")
 
 # Check number of records
-#nrow(gbif_France)
+#nrow(gbif_France) 363
 
 # Quick base plot for checking
-windows()
 plot(
   gbif_France$decimalLongitude,
   gbif_France$decimalLatitude,
@@ -380,8 +375,7 @@ plot(
 )
 
 # Map showing GBIF occurrences only
-windows()
-ggplot(data = France) +
+p7 <- ggplot(data = France) +
   geom_sf(fill = "grey95", color = "black") +
   geom_point(
     data = gbif_France,
@@ -393,6 +387,8 @@ ggplot(data = France) +
   ) +
   coord_sf(xlim = c(-5, 10), ylim = c(42, 51)) +
   theme_classic()
+print(p7)
+ggsave(p7, filename = ".\\data\\merge_gbif_inat_maps\\p7.png", width = 10, height = 8)
 
 ###############################################################################
 # 5) FORMAT GBIF DATA
@@ -416,8 +412,7 @@ data_gbif <- data.frame(
 # 6) DOWNLOAD iNaturalist DATA
 ###############################################################################
 
-# Query iNaturalist for the same species in Europe
-# place_id = "europe" usually works with rinat
+# Query iNaturalist for the same species in France
 inat_raw <- get_inat_obs(
   query = myspecies_2,
   place_id = "france"
@@ -428,8 +423,7 @@ inat_raw <- get_inat_obs(
 #names(inat_raw)
 
 # Map showing iNaturalist occurrences only
-windows()
-ggplot(data = France) +
+p8 <- ggplot(data = France) +
   geom_sf(fill = "grey95", color = "black") +
   geom_point(
     data = inat_raw,
@@ -441,6 +435,8 @@ ggplot(data = France) +
   ) +
   coord_sf(xlim = c(-5, 10), ylim = c(42, 51)) +
   theme_classic()
+print(p8)
+ggsave(p8, filename = ".\\data\\merge_gbif_inat_maps\\p8.png", width = 10, height = 8)
 
 ###############################################################################
 # 7) FORMAT iNaturalist DATA
@@ -492,8 +488,7 @@ matrix_full_date_2 <- matrix_full_2 %>%
 # 10) MAP OF COMBINED DATA
 ###############################################################################
 
-windows()
-ggplot(data = France) +
+p9 <- ggplot(data = France) +
   geom_sf(fill = "grey95", color = "black") +
   geom_point(
     data = matrix_full_date_2,
@@ -505,6 +500,8 @@ ggplot(data = France) +
   ) +
   coord_sf(xlim = c(-5, 10), ylim = c(42, 51)) +
   theme_classic()
+print(p9)
+ggsave(p9, filename = ".\\data\\merge_gbif_inat_maps\\p9.png", width = 10, height = 8)
 
 ###############################################################################
 # 11) DEFINE A SIMPLE SPATIAL EXTENT
@@ -513,21 +510,12 @@ ggplot(data = France) +
 ################################################################################
 ##### Crop the background using coordinates
 
-library(sf)
-library(dplyr)
-sf_use_s2(FALSE)
-
 # Define the spatial extent
 extent(France)
 ext_France_cut <- as(raster::extent(6, 11, 47, 48), "SpatialPolygons")
 
-# Crop France map to the defined extent
-bbox_cut <- st_bbox(c(xmin = 6, xmax = 11, ymin = 47, ymax = 48), crs = 4326)
-France_crop <- st_crop(France, bbox_cut)
-
 # Plot cropped map with occurrence points
-windows()
-ggplot(data = France) +
+p10 <- ggplot(data = France) +
   geom_sf() +
   geom_point(
     data = matrix_full_date_2,
@@ -537,6 +525,8 @@ ggplot(data = France) +
   ) +
   coord_sf(xlim = c(-5, 10), ylim = c(42, 51)) +
   theme_classic()
+print(p10)
+ggsave(p10, filename = ".\\data\\merge_gbif_inat_maps\\p10.png", width = 10, height = 8)
 
 ################################################################################
 ################################################################################
@@ -544,9 +534,6 @@ ggplot(data = France) +
 
 # Convert occurrences to sf object
 data_gbif_sf <- st_as_sf(matrix_full_2, coords = c("longitude", "latitude"), crs = 4326)
-
-# Convert cropped France polygon to sf
-France_sf <- st_as_sf(France)
 
 # Identify points in france
 intersects_result <- st_intersects(data_gbif_sf, France_sf)
@@ -560,8 +547,7 @@ cur_data_2 <- matrix_full_2[keep, ]
 #table(cur_data_2$source)
 
 # Plot cropped France map with filtered points
-windows()
-ggplot(data = France_sf) +
+p11 <- ggplot(data = France_sf) +
   geom_sf() +
   geom_point(
     data = cur_data_2,
@@ -571,6 +557,8 @@ ggplot(data = France_sf) +
   ) +
   coord_sf(xlim = c(-5, 10), ylim = c(42, 51)) +
   theme_classic()
+print(p11)
+ggsave(p11, filename = ".\\data\\merge_gbif_inat_maps\\p11.png", width = 10, height = 8)
 
 ###############################################################################
 # 14) OPTIONAL SAVE OF THE FINAL TABLE
@@ -579,13 +567,9 @@ ggplot(data = France_sf) +
 # Save filtered occurrence table
 write.csv(
   cur_data_2,
-  file = "Barbastella_barbastellus.csv",
+  file = ".\\data\\merge_gbif_inat_maps\\Barbastella_barbastellus.csv",
   row.names = FALSE
 )
-
-# I found barbastella barbastellus, with 355 data from GBIF and 92 from iNat
-# and Rhinolophus ferrumquinum has 1580 data from GBIF and 92 from iNat
-
 
 # --------------------------------------------------------------------
 # ----------- Merge the data from the two species --------------------
@@ -598,8 +582,7 @@ all_species <- bind_rows(cur_data_1, cur_data_2)
 #table(all_species$species)
 #table(all_species$source)
 
-windows()
-ggplot(data = France_sf) +
+p12 <- ggplot(data = France_sf) +
   geom_sf(fill = "grey95", color = "black") +
   
   geom_point(
@@ -629,7 +612,30 @@ ggplot(data = France_sf) +
   theme_classic() +
   
   labs(
-    title = "Chiroptères in France (GBIF + iNaturalist)",
+    title = "Occurrence of two bat species in France between 2020 and 2025 from GBIF and iNaturalist",
     color = "Species",
     shape = "Database"
   )
+print(p12)
+ggsave(p12, filename = ".\\data\\merge_gbif_inat_maps\\p12.png", width = 10, height = 8)
+
+# verification
+#table(all_species$species) # 438 data for Barbastella barbastellus and 1674 data for Rhinolophus ferrumequinum
+#table(all_species$source) # 1926 for GBIF and 186 for Inat 
+
+# View(all_species)
+# so here the final result is a table named all_species, who combines the occurences from GBIF and iNat, from 2020 to 2025, for the two species of bats.
+# we have the columns species, latitude, longitude, date_obs and source (gbif or inat)
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------
+# other comment: I chose these two species in particular because, although they are not directly related, 
+# they have relatively different ecology. Barbastella barbastellus prefers bark or loose tree cavities and 
+# can be found up to 7,000 meters in altitude, with a preference for mature deciduous forests. 
+# Rhinolophus ferummequinum, on the other hand, inhabits temperate Mediterranean habitats (for example, deciduous and riparian forests, pastures), 
+# as well as attics. My initial idea was to compare two species present in France but with different ecology in relation 
+# to changes in light pollution, in order to see if their respective distribution ranges have been influenced by changes 
+# in anthropogenic nighttime light. I tried to extract the VNL data from the american satellite for the light pollution in France, 
+# but it was wayyyyy to heavy, and I couldn't crop it (the raster is for the world) (VNL_v22_npp-j01_2022_global_vcmslcfg_c202303062300.average.dat.tif.gz)
+# So, having had great difficulty finding the raster of light pollution in France, 
+## I decided to put this question on a more subsidiary level and to concentrate on the evolution of vegetation in and outside cities, in order to see if this and temperature influence the niches of the two species.
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
